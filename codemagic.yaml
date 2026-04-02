@@ -1,7 +1,7 @@
 workflows:
   ios-build:
     name: iOS Build (Unsigned IPA)
-    max_build_duration: 60
+    max_build_duration: 120
     instance_type: mac_mini_m2
     
     environment:
@@ -9,16 +9,12 @@ workflows:
       flutter: null
       
     scripts:
-      - name: Install XcodeGen
-        script: |
-          brew install xcodegen || true
-          xcodegen --version
-      
-      - name: Generate Xcode project
+      - name: Generate Xcode project with Swift Package Manager
         script: |
           cd PlanetaryEphemeris
+          swift package generate-xcodeproj || swift package init --type library || true
           ls -la
-          xcodegen generate || { echo "XcodeGen failed"; exit 1; }
+          swift package resolve
       
       - name: Build unsigned IPA
         script: |
