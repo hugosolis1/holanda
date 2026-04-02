@@ -115,16 +115,24 @@ struct EphemeridesView: View {
                 }
             }
             
-            if let houses = viewModel.houseCusps {
-                Section(header: Text("House Cusps")) {
-                    HouseCuspRow(title: "Ascendant (ASC)", value: houses.formattedAscendant)
-                    HouseCuspRow(title: "Medium Coeli (MC)", value: houses.formattedMC)
-                    HouseCuspRow(title: "Descendant (DESC)", value: houses.formattedDescendant)
-                    HouseCuspRow(title: "Imum Coeli (IC)", value: houses.formattedIC)
+            Section(header: Text("House Cusps")) {
+                if let houses = viewModel.houseCusps {
+                    HouseCuspRow(title: "Ascendant (ASC)", value: String(format: "%.5f°", normalizeDegree(houses.ascendant)))
+                    HouseCuspRow(title: "Medium Coeli (MC)", value: String(format: "%.5f°", normalizeDegree(houses.mc)))
+                    HouseCuspRow(title: "Descendant (DESC)", value: String(format: "%.5f°", normalizeDegree(houses.descendant)))
+                    HouseCuspRow(title: "Imum Coeli (IC)", value: String(format: "%.5f°", normalizeDegree(houses.ic)))
                 }
             }
         }
         .listStyle(.insetGrouped)
+    }
+    
+    private func normalizeDegree(_ degree: Double) -> Double {
+        var result = degree.truncatingRemainder(dividingBy: 360)
+        if result < 0 {
+            result += 360
+        }
+        return result
     }
 }
 

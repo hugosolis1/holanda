@@ -1,32 +1,43 @@
 import Foundation
+import SwissEphemeris
 
 class EphemerisEngine {
     static let shared = EphemerisEngine()
     
-    private let swissEphemeris = SwissEphemerisWrapper.shared
     private let location = Location.greenwich
     
     private init() {
-        swissEphemeris.initialize()
+        JPLFileManager.setEphemerisPath()
     }
     
     func calculateAllPlanetPositions(
         date: Date,
         mode: CalculationMode
     ) -> [PlanetPosition] {
-        let jd = swissEphemeris.dateToJulianDay(date)
-        let isHeliocentric = mode == .heliocentric
+        let calcMode: SwissEphemeris.CalculationMode
+        switch mode {
+        case .geocentric:
+            calcMode = .swiss
+        case .heliocentric:
+            calcMode = [.swiss, .heliocentric]
+        }
         
         var positions: [PlanetPosition] = []
         
         for planet in Planet.allCases {
-            if let position = calculatePlanetPosition(
+            let coordinate = Coordinate(planet: planet.swissPlanet, date: date, calculationMode: calcMode)
+            
+            positions.append(PlanetPosition(
                 planet: planet,
-                julianDay: jd,
-                isHeliocentric: isHeliocentric
-            ) {
-                positions.append(position)
-            }
+                longitude: coordinate.longitude,
+                latitude: coordinate.latitude,
+                distance: coordinate.distance,
+                speed: coordinate.speedLongitude
+            ))
+        }
+        
+        if let houses = calculateHouses(date: date) {
+            positions.append(contentsOf: houses)
         }
         
         return positions
@@ -37,44 +48,41 @@ class EphemerisEngine {
         date: Date,
         mode: CalculationMode
     ) -> PlanetPosition? {
-        let jd = swissEphemeris.dateToJulianDay(date)
-        let isHeliocentric = mode == .heliocentric
+        let calcMode: SwissEphemeris.CalculationMode
+        switch mode {
+        case .geocentric:
+            calcMode = .swiss
+        case .heliocentric:
+            calcMode = [.swiss, .heliocentric]
+        }
         
-        return calculatePlanetPosition(planet: planet, julianDay: jd, isHeliocentric: isHeliocentric)
+        let coordinate = Coordinate(planet: planet.swissPlanet, date: date, calculationMode: calcMode)
+        
+        return PlanetPosition(
+            planet: planet,
+            longitude: coordinate.longitude,
+            latitude: coordinate.latitude,
+            distance: coordinate.distance,
+            speed: coordinate.speedLongitude
+        )
     }
     
-    private func calculatePlanetPosition(
-        planet: Planet,
-        julianDay: Double,
-        isHeliocentric: Bool
-    ) -> PlanetPosition? {
-        guard let result = swissEphemeris.calculatePlanetPosition(
-            planet: planet,
-            julianDay: julianDay,
-            isHeliocentric: isHeliocentric
+    private func calculateHouses(date: Date) -> [PlanetPosition]? {
+        guard let houses = try? HouseCusps(
+            date: date,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            houseSystem: .placidus
         ) else {
             return nil
         }
         
-        return PlanetPosition(
-            planet: planet,
-            longitude: result.longitude,
-            latitude: result.latitude,
-            distance: result.distance,
-            speed: result.speed,
-            julianDay: julianDay,
-            isHeliocentric: isHeliocentric
-        )
-    }
-    
-    func calculateAscendantMC(date: Date) -> HouseCusps? {
-        let jd = swissEphemeris.dateToJulianDay(date)
-        
-        return swissEphemeris.calculateHouses(
-            julianDay: jd,
-            latitude: location.latitude,
-            longitude: location.longitude
-        )
+        return [
+            PlanetPosition(planet: Planet(rawValue: -1)!, longitude: houses.ascendant.tropical.degree, latitude: 0, distance: 0, speed: 0),
+            PlanetPosition(planet: Planet(rawValue: -1)!, longitude: houses.mc.tropical.degree, latitude: 0, distance: 0, speed: 0),
+            PlanetPosition(planet: Planet(rawValue: -1)!, longitude: houses.descendant.tropical.degree, latitude: 0, distance: 0, speed: 0),
+            PlanetPosition(planet: Planet(rawValue: -1)!, longitude: houses.ic.tropical.degree, latitude: 0, distance: 0, speed: 0)
+        ]
     }
     
     func calculatePositions(
@@ -82,18 +90,25 @@ class EphemerisEngine {
         date: Date,
         mode: CalculationMode
     ) -> Double? {
-        let jd = swissEphemeris.dateToJulianDay(date)
-        let isHeliocentric = mode == .heliocentric
-        
-        guard let result = swissEphemeris.calculatePlanetPosition(
-            planet: planet,
-            julianDay: jd,
-            isHeliocentric: isHeliocentric
-        ) else {
-            return nil
+        let calcMode: SwissEphemeris.CalculationMode
+        switch mode {
+        case .geocentric:
+            calcMode = .swiss
+        case .heliocentric:
+            calcMode = [.swiss, .heliocentric]
         }
         
-        return normalizeDegree(result.longitude)
+        let coordinate = Coordinate(planet: planet.swissPlanet, date: date, calculationMode: calcMode)
+        return normalizeDegree(coordinate.longitude)
+    }
+    
+    func calculateAscendantMC(date: Date) -> HouseCusps? {
+        return try? HouseCusps(
+            date: date,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            houseSystem: .placidus
+        )
     }
     
     private func normalizeDegree(_ degree: Double) -> Double {

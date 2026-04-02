@@ -1,10 +1,10 @@
 import Foundation
+import Combine
 
 class DegreeSearchEngine: ObservableObject {
     static let shared = DegreeSearchEngine()
     
     private let ephemerisEngine = EphemerisEngine.shared
-    private let swissEphemeris = SwissEphemerisWrapper.shared
     
     @Published var isSearching = false
     @Published var progress: Double = 0
