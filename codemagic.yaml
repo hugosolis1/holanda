@@ -1,0 +1,67 @@
+workflows:
+  ios-build:
+    name: iOS Build (Unsigned IPA)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    
+    environment:
+      xcode: latest
+      cocoapods: default
+      flutter: false
+      
+    scripts:
+      - name: Install XcodeGen
+        script: |
+          brew install xcodegen || true
+      
+      - name: Generate Xcode project
+        script: |
+          cd PlanetaryEphemeris
+          xcodegen generate
+      
+      - name: Build unsigned IPA
+        script: |
+          cd PlanetaryEphemeris
+          xcodebuild build \
+            -project PlanetaryEphemeris.xcodeproj \
+            -scheme PlanetaryEphemeris \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_BITCODE=NO \
+            -derivedDataPath build \
+            2>&1 | tee build.log
+      
+      - name: Create IPA
+        script: |
+          cd PlanetaryEphemeris
+          if [ -d "build/Build/Products/Release-iphoneos/PlanetaryEphemeris.app" ]; then
+            mkdir -p build/ipa/Payload
+            cp -r build/Build/Products/Release-iphoneos/PlanetaryEphemeris.app build/ipa/Payload/
+            cd build/ipa && zip -r PlanetaryEphemeris_unsigned.ipa Payload/
+            mv PlanetaryEphemeris_unsigned.ipa ../ || echo "Move failed"
+          else
+            echo "ERROR: PlanetaryEphemeris.app not found!"
+            ls -laR build/
+            exit 1
+          fi
+      
+      - name: Verify IPA
+        script: |
+          cd PlanetaryEphemeris
+          ls -la PlanetaryEphemeris_unsigned.ipa || echo "IPA not found"
+          unzip -l PlanetaryEphemeris_unsigned.ipa | head -20
+    
+    artifacts:
+      - PlanetaryEphemeris/build.log
+      - PlanetaryEphemeris/PlanetaryEphemeris_unsigned.ipa
+
+    publishing:
+      provider: github
+      channel: releases
+      tag_name: v1.0.0
+      release_name: PlanetaryEphemeris v1.0.0
+      release_notes: "iOS Planetary Ephemeris App - Unsigned IPA Build"
