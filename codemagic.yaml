@@ -6,18 +6,19 @@ workflows:
     
     environment:
       xcode: latest
-      cocoapods: default
-      flutter: false
+      flutter: null
       
     scripts:
       - name: Install XcodeGen
         script: |
           brew install xcodegen || true
+          xcodegen --version
       
       - name: Generate Xcode project
         script: |
           cd PlanetaryEphemeris
-          xcodegen generate
+          ls -la
+          xcodegen generate || { echo "XcodeGen failed"; exit 1; }
       
       - name: Build unsigned IPA
         script: |
@@ -60,8 +61,6 @@ workflows:
       - PlanetaryEphemeris/PlanetaryEphemeris_unsigned.ipa
 
     publishing:
-      provider: github
-      channel: releases
-      tag_name: v1.0.0
-      release_name: PlanetaryEphemeris v1.0.0
-      release_notes: "iOS Planetary Ephemeris App - Unsigned IPA Build"
+      provider: email
+      recipients:
+        - valeriaaamtz123@gmail.com
